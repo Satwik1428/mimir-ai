@@ -1,48 +1,221 @@
-import { LayoutDashboard, Search, FileText, Settings } from "lucide-react"
+import {
+  LayoutDashboard,
+  Search,
+  FileText,
+  Brain,
+  FolderTree,
+  Settings,
+  HardDrive,
+  Database,
+  CircleUserRound,
+} from "lucide-react"
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard" },
-  { icon: Search, label: "Search" },
-  { icon: FileText, label: "Docs" },
-  { icon: Settings, label: "Settings" },
+  {
+    icon: LayoutDashboard,
+    label: "Dashboard",
+  },
+  {
+    icon: Search,
+    label: "Search",
+  },
+  {
+    icon: FileText,
+    label: "Documents",
+  },
+  {
+    icon: Brain,
+    label: "AI Insights",
+  },
+  {
+    icon: FolderTree,
+    label: "Organization",
+  },
+  {
+    icon: Settings,
+    label: "Settings",
+  },
 ]
 
 export function Sidebar({ active, onNavigate }) {
   return (
-    <aside className="w-60 h-screen bg-black border-r border-white/10 flex flex-col p-4">
-      <div className="flex items-center gap-2 px-2 py-3 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center font-bold text-white">
-          M
+    <aside className="w-72 h-screen flex flex-col border-r border-white/10 bg-zinc-950/80 backdrop-blur-2xl px-6 py-7">
+
+      {/* Logo */}
+      <div className="flex items-center gap-4 mb-10">
+
+        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
+
+          <span className="text-white font-bold text-lg">
+            M
+          </span>
+
         </div>
-        <span className="font-semibold text-white">Mimir AI</span>
+
+        <div>
+
+          <h2 className="text-lg font-semibold tracking-tight">
+            Mimir AI
+          </h2>
+
+          <p className="text-xs text-zinc-500">
+            Private AI Workspace
+          </p>
+
+        </div>
+
       </div>
 
-      <nav className="flex flex-col gap-1">
-        {navItems.map(({ icon: Icon, label }) => (
-          <button
-            key={label}
-            onClick={() => onNavigate(label)}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              active === label
-                ? "bg-white/10 text-white"
-                : "text-gray-400 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <Icon size={18} />
-            {label}
-          </button>
-        ))}
+      {/* Navigation */}
+
+      <nav className="space-y-2">
+
+        {navItems.map(({ icon: Icon, label }) => {
+
+          const isActive = active === label
+
+          return (
+            <button
+              key={label}
+              onClick={() => onNavigate(label)}
+              className={`w-full flex items-center gap-4 rounded-2xl px-4 py-3 transition-all duration-300 group
+
+              ${
+                isActive
+                  ? "bg-white/10 border border-white/10 shadow-lg"
+                  : "hover:bg-white/5"
+              }
+              
+              `}
+            >
+
+              <Icon
+                size={20}
+                className={`
+
+                ${
+                  isActive
+                    ? "text-white"
+                    : "text-zinc-500 group-hover:text-white"
+                }
+
+                `}
+              />
+
+              <span
+                className={`text-[15px] font-medium
+
+                ${
+                  isActive
+                    ? "text-white"
+                    : "text-zinc-400 group-hover:text-white"
+                }
+
+                `}
+              >
+                {label}
+              </span>
+
+            </button>
+          )
+        })}
+
       </nav>
 
-      <div className="mt-auto space-y-3 px-2">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          Running locally · Qwen2.5 3B
+      {/* Bottom */}
+
+      <div className="mt-auto space-y-5">
+
+        <div className="border-t border-white/10" />
+
+        {/* Storage */}
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+
+          <div className="flex items-center gap-2 mb-3">
+
+            <HardDrive
+              size={16}
+              className="text-violet-400"
+            />
+
+            <span className="text-sm text-zinc-300">
+              Storage Indexed
+            </span>
+
+          </div>
+
+          <div className="flex items-end justify-between">
+
+            <h3 className="text-xl font-semibold">
+              3.2 TB
+            </h3>
+
+            <span className="text-xs text-zinc-500">
+              82%
+            </span>
+
+          </div>
+
+          <div className="mt-3 h-2 rounded-full bg-white/5 overflow-hidden">
+
+            <div className="h-full w-[82%] rounded-full bg-gradient-to-r from-blue-500 to-violet-500" />
+
+          </div>
+
         </div>
-        <div className="text-xs text-gray-500 pt-2 border-t border-white/10">
-          Alex R.
+
+        {/* Model */}
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex items-center justify-between">
+
+          <div>
+
+            <p className="text-xs text-zinc-500 mb-1">
+              Active Model
+            </p>
+
+            <h3 className="font-medium">
+              Qwen 2.5 3B
+            </h3>
+
+          </div>
+
+          <Database
+            size={20}
+            className="text-blue-400"
+          />
+
         </div>
+
+        {/* Profile */}
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex items-center gap-3">
+
+          <div className="h-11 w-11 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+
+            <CircleUserRound
+              size={22}
+            />
+
+          </div>
+
+          <div>
+
+            <h3 className="text-sm font-medium">
+              Alex R.
+            </h3>
+
+            <p className="text-xs text-zinc-500">
+              Frontend Developer
+            </p>
+
+          </div>
+
+        </div>
+
       </div>
+
     </aside>
   )
 }

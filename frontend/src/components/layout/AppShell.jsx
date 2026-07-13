@@ -2,16 +2,44 @@ import { Sidebar } from "./Sidebar"
 
 export function AppShell({ children, active, onNavigate }) {
   return (
-    <div className="min-h-screen w-full bg-black text-white relative overflow-hidden">
-      {/* background glow — pushed to bottom-right so top-left stays black */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_20%,rgba(59,130,246,0.12),transparent_50%),radial-gradient(circle_at_75%_85%,rgba(139,92,246,0.18),transparent_55%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-[#09090B] text-white">
 
-      <div className="relative flex w-full">
-        <Sidebar active={active} onNavigate={onNavigate} />
-        <main className="flex-1 p-8 overflow-y-auto h-screen">
-          {children}
-        </main>
+      {/* Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+
+        {/* Blue Glow */}
+        <div className="absolute -top-40 right-[-180px] h-[700px] w-[700px] rounded-full bg-blue-500/15 blur-[170px]" />
+
+        {/* Purple Glow */}
+        <div className="absolute bottom-[-220px] right-[18%] h-[700px] w-[700px] rounded-full bg-violet-500/15 blur-[170px]" />
+
+        {/* Ambient Glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.03),transparent_45%)]" />
+
       </div>
+
+      {/* Layout */}
+      <div className="relative flex h-screen">
+
+        {/* Sidebar */}
+        <Sidebar
+          active={active}
+          onNavigate={onNavigate}
+        />
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+
+          <div className="mx-auto max-w-[1600px] px-12 py-10">
+
+            {children}
+
+          </div>
+
+        </main>
+
+      </div>
+
     </div>
   )
 }
