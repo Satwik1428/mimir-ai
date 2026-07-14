@@ -1,8 +1,9 @@
 import {
   LayoutDashboard,
+  Brain,
   Search,
   FileText,
-  Brain,
+  Sparkles,
   FolderTree,
   Settings,
   HardDrive,
@@ -16,6 +17,10 @@ const navItems = [
     label: "Dashboard",
   },
   {
+    icon: Brain,
+    label: "Ask Mimir",
+  },
+  {
     icon: Search,
     label: "Search",
   },
@@ -24,12 +29,12 @@ const navItems = [
     label: "Documents",
   },
   {
-    icon: Brain,
-    label: "AI Insights",
+    icon: Sparkles,
+    label: "AI insights",
   },
   {
     icon: FolderTree,
-    label: "Organization",
+    label: "Collection",
   },
   {
     icon: Settings,

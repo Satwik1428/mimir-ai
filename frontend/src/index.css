@@ -1,14 +1,110 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import "tailwindcss";
+
+
+:root {
+  font-family: "Geist", Inter, system-ui, sans-serif;
+
+  color: rgba(255,255,255,.95);
+
+  background: #09090B;
+
+  font-synthesis: none;
+
+  text-rendering: optimizeLegibility;
+
+  -webkit-font-smoothing: antialiased;
+
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* ------------------------------ */
+
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+
+/* ------------------------------ */
 
 html,
 body,
-#root {
-  height: 100%;
-  width: 100%;
+#root{
+  width:100%;
+  min-height:100%;
 }
 
-@import "tailwindcss";
+
+body{
+
+  margin:0;
+
+  overflow-x:hidden;
+
+  color:white;
+
+  background:
+  radial-gradient(circle at 95% 10%,
+  rgba(59,130,246,.18) 0%,
+  transparent 28%),
+
+  radial-gradient(circle at 70% 85%,
+  rgba(124,58,237,.18) 0%,
+  transparent 38%),
+
+  linear-gradient(
+  135deg,
+
+  #09090B 0%,
+
+  #09090B 45%,
+
+  #111022 70%,
+
+  #17112D 100%
+  );
+
+}
+
+
+button{
+  cursor:pointer;
+}
+
+img{
+  user-select:none;
+}
+
+input{
+  outline:none;
+}
+
+::-webkit-scrollbar{
+  width:10px;
+}
+
+::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+::-webkit-scrollbar-thumb{
+
+  background:#3f3f46;
+
+  border-radius:999px;
+
+}
+
+::-webkit-scrollbar-thumb:hover{
+
+  background:#52525b;
+
+}
+
+::selection{
+
+  background:#7C3AED;
+
+  color:white;
+
+}
