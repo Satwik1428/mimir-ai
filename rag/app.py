@@ -1,140 +1,128 @@
 import os
+from typing import List, Optional, Dict, Any
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from dotenv import load_dotenv
-
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_groq import ChatGroq
 
 load_dotenv()
 
-GROQ_API = os.getenv("GROQ_API")
+import db
+from indexer import index_folder, index_files, search_documents
+from llm import ask_question
 
-if not GROQ_API:
-    raise ValueError("GROQ_API not found in .env file.")
+# Initialize SQLite database schema
+db.init_db()
 
-file_name = input("Enter PDF file path: ")
-
-loader = PyPDFLoader(file_name)
-docs = loader.load()
-
-print("\nPDF Loaded Successfully!\n")
-
-full_text = ""
-
-for doc in docs:
-    full_text += doc.page_content + "\n"
-
-print(" PDF CONTENT \n")
-print(full_text[:3000])   
-print("\n==\n")
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=200
+app = FastAPI(
+    title="Mimir AI API",
+    description="Private on-device AI backend for local file indexing, semantic search, and RAG Q&A",
+    version="1.0.0"
 )
 
-all_splits = text_splitter.split_documents(docs)
-
-print(f"Created {len(all_splits)} chunks.\n")
-
-embedding_model = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-mpnet-base-v2"
+# Enable CORS for frontend integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
+# ─── Pydantic Request Models ──────────────────────────────────────────────────
 
-vector_store = FAISS.from_documents(
-    documents=all_splits,
-    embedding=embedding_model
-)
+class IndexRequest(BaseModel):
+    folder_path: Optional[str] = None
+    file_paths: Optional[List[str]] = None
+    recursive: Optional[bool] = True
 
-print("Vector Store Created Successfully!\n")
+class SearchRequest(BaseModel):
+    query: str
+    k: Optional[int] = 5
+
+class AskRequest(BaseModel):
+    query: str
+    file_id: Optional[str] = None
+    history: Optional[List[Dict[str, str]]] = None
+    k: Optional[int] = 4
+
+# ─── 4 Core Endpoints ────────────────────────────────────────────────────────
+
+@app.post("/index")
+def index_endpoint(req: IndexRequest):
+    """
+    1. POST /index
+    Process/index local files or a directory into FAISS and SQLite.
+    """
+    if req.folder_path:
+        if not os.path.exists(req.folder_path):
+            raise HTTPException(status_code=400, detail=f"Folder not found: {req.folder_path}")
+        result = index_folder(req.folder_path, recursive=req.recursive if req.recursive is not None else True)
+        return {"status": "success", "data": result}
+    
+    elif req.file_paths:
+        result = index_files(req.file_paths)
+        return {"status": "success", "data": result}
+    
+    else:
+        raise HTTPException(status_code=400, detail="Must provide either folder_path or file_paths")
 
 
-llm = ChatGroq(
-    api_key=GROQ_API,
-    model="llama-3.3-70b-versatile"
-)
-
-
-chat_history = []
-
-def retrieve_context(query, k=2):
-
-    retrieved_docs = vector_store.similarity_search(query, k=k)
-
-    docs_content = ""
-
-    for doc in retrieved_docs:
-        docs_content += f"Source: {doc.metadata}\n"
-        docs_content += f"Content: {doc.page_content}\n\n"
-
-    return docs_content, retrieved_docs
-
-def docu_chat(user_query):
-
-    global chat_history
-
-    context, source_docs = retrieve_context(user_query)
-
-    system_message = f"""
-You are a helpful AI assistant.
-Answer ONLY using the provided context.
-If the answer is not present in the context, simply say:
-"I couldn't find that information in the uploaded PDF."
-Context:
-{context}
-"""
-
-    messages = [
-        {
-            "role": "system",
-            "content": system_message
-        }
-    ]
-
-    messages.extend(chat_history)
-
-    messages.append(
-        {
-            "role": "user",
-            "content": user_query
-        }
-    )
-
-    response = llm.invoke(messages)
-
-    chat_history.append(
-        {
-            "role": "user",
-            "content": user_query
-        }
-    )
-
-    chat_history.append(
-        {
-            "role": "assistant",
-            "content": response.content
-        }
-    )
-
+@app.get("/documents")
+def documents_endpoint():
+    """
+    2. GET /documents
+    Get files Mimir has indexed along with storage & file count stats.
+    """
+    docs = db.get_all_documents()
+    stats = db.get_document_stats()
     return {
-        "answer": response.content,
-        "source_documents": source_docs,
-        "context_used": context
+        "status": "success",
+        "stats": stats,
+        "documents": docs
     }
 
-print(" PDF Chatbot Started ")
-print("Type 'exit' to stop.")
 
-while True:
+@app.post("/search")
+def search_endpoint(req: SearchRequest):
+    """
+    3. POST /search
+    Semantic natural-language file search.
+    """
+    if not req.query.strip():
+        return {"status": "success", "results": []}
 
-    query = input("\nYou: ")
+    results = search_documents(query=req.query, k=req.k or 5)
+    return {
+        "status": "success",
+        "query": req.query,
+        "results": results
+    }
 
-    if query.lower() == "exit":
-        print("Goodbye!")
-        break
 
-    result = docu_chat(query)
+@app.post("/ask")
+def ask_endpoint(req: AskRequest):
+    """
+    4. POST /ask
+    Ask a question and get a grounded AI answer from indexed local files.
+    """
+    if not req.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    print("\nJarvis:", result["answer"])
+    res = ask_question(
+        query=req.query,
+        file_filter=req.file_id,
+        history=req.history,
+        k=req.k or 4
+    )
+    return {
+        "status": "success",
+        "query": req.query,
+        "answer": res["answer"],
+        "sources": res["sources"],
+        "context": res["context"]
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,202 +1,112 @@
 import {
   FileText,
+  FileCode,
+  FileImage,
+  FileSpreadsheet,
+  File,
   ArrowUpRight,
-  Sparkles,
+  Zap,
 } from "lucide-react"
 
-import { Card } from "@/components/ui/card"
+// Presentation icon doesn't exist in lucide — use a substitute
+import { MonitorPlay } from "lucide-react"
 
-export function ResultCard({
-  title,
-  snippet,
-  confidence,
-}) {
+// ── File-type metadata ────────────────────────────────────────────────────────
+const EXT_META = {
+  pdf:  { icon: FileText,       label: "PDF",  cls: "text-red-400   bg-red-500/10   border-red-500/20"   },
+  docx: { icon: FileText,       label: "DOCX", cls: "text-blue-400  bg-blue-500/10  border-blue-500/20"  },
+  doc:  { icon: FileText,       label: "DOC",  cls: "text-blue-400  bg-blue-500/10  border-blue-500/20"  },
+  md:   { icon: FileCode,       label: "MD",   cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+  txt:  { icon: FileCode,       label: "TXT",  cls: "text-zinc-400  bg-white/5      border-white/10"     },
+  pptx: { icon: MonitorPlay,    label: "PPTX", cls: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+  ppt:  { icon: MonitorPlay,    label: "PPT",  cls: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+  xlsx: { icon: FileSpreadsheet,label: "XLSX", cls: "text-green-400 bg-green-500/10  border-green-500/20" },
+  xls:  { icon: FileSpreadsheet,label: "XLS",  cls: "text-green-400 bg-green-500/10  border-green-500/20" },
+  png:  { icon: FileImage,      label: "PNG",  cls: "text-sky-400   bg-sky-500/10   border-sky-500/20"   },
+  jpg:  { icon: FileImage,      label: "JPG",  cls: "text-sky-400   bg-sky-500/10   border-sky-500/20"   },
+  jpeg: { icon: FileImage,      label: "JPEG", cls: "text-sky-400   bg-sky-500/10   border-sky-500/20"   },
+}
+
+const FALLBACK = { icon: File, label: "FILE", cls: "text-zinc-400 bg-white/5 border-white/10" }
+
+function getFileMeta(filename) {
+  const ext = filename?.split(".").pop()?.toLowerCase() ?? ""
+  return EXT_META[ext] ?? { ...FALLBACK, label: ext.toUpperCase() || "FILE" }
+}
+
+function confidenceCls(n) {
+  if (n >= 90) return "text-emerald-400"
+  if (n >= 75) return "text-blue-400"
+  return "text-zinc-400"
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+export function ResultCard({ title, snippet, confidence }) {
+  const meta = getFileMeta(title)
+  const Icon = meta.icon
+
   return (
-    <Card
+    <div
       className="
-        group
+        group relative rounded-xl border border-white/[0.08] bg-white/[0.03]
+        p-5 transition-all duration-200
+        hover:border-white/[0.14] hover:bg-white/[0.055]
+        hover:shadow-[0_4px_24px_rgba(0,0,0,0.35)]
+        hover:-translate-y-px
         cursor-pointer
-        rounded-3xl
-        border
-        border-white/10
-        bg-white/[0.04]
-        backdrop-blur-xl
-        transition-all
-        duration-300
-        hover:border-violet-500/30
-        hover:bg-white/[0.06]
-        hover:shadow-[0_0_35px_rgba(124,58,237,0.12)]
       "
     >
-      <div className="p-6">
+      {/* Top row */}
+      <div className="flex items-start justify-between gap-4">
 
-        {/* Top */}
-
-        <div className="flex items-start justify-between">
-
-          <div className="flex items-start gap-4">
-
-            {/* Icon */}
-
-            <div
-              className="
-                flex
-                h-12
-                w-12
-                items-center
-                justify-center
-                rounded-2xl
-                bg-gradient-to-br
-                from-violet-500/20
-                to-blue-500/20
-                border
-                border-white/10
-              "
-            >
-              <FileText
-                size={22}
-                className="text-violet-300"
-              />
-            </div>
-
-            {/* Title */}
-
-            <div>
-
-              <h3
-                className="
-                  text-lg
-                  font-semibold
-                  tracking-tight
-                  text-white
-                "
-              >
-                {title}
-              </h3>
-
-              <div className="mt-2 flex items-center gap-2">
-
-                <span
-                  className="
-                    rounded-full
-                    border
-                    border-violet-500/20
-                    bg-violet-500/10
-                    px-3
-                    py-1
-                    text-xs
-                    text-violet-300
-                  "
-                >
-                  PDF
-                </span>
-
-                <span
-                  className="
-                    rounded-full
-                    border
-                    border-white/10
-                    bg-white/[0.04]
-                    px-3
-                    py-1
-                    text-xs
-                    text-zinc-400
-                  "
-                >
-                  NLP
-                </span>
-
-              </div>
-
-            </div>
-
+        {/* Icon + title */}
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <div className={`shrink-0 flex h-9 w-9 items-center justify-center rounded-lg border ${meta.cls}`}>
+            <Icon size={17} strokeWidth={1.8} />
           </div>
 
-          {/* Confidence */}
-
-          <div
-            className="
-              rounded-xl
-              border
-              border-emerald-500/20
-              bg-emerald-500/10
-              px-3
-              py-2
-            "
-          >
-
-            <p className="text-xs text-zinc-500">
-              Confidence
-            </p>
-
-            <h4 className="text-lg font-semibold text-emerald-400">
-              {confidence}%
-            </h4>
-
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white leading-snug">{title}</p>
+            <span className={`mt-1 inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${meta.cls}`}>
+              {meta.label}
+            </span>
           </div>
-
         </div>
 
-        {/* Snippet */}
-
-        <p
-          className="
-            mt-6
-            leading-7
-            text-zinc-400
-          "
-        >
-          {snippet}
-        </p>
-
-        {/* Divider */}
-
-        <div className="my-6 border-t border-white/10" />
-
-        {/* Footer */}
-
-        <div className="flex items-center justify-between">
-
-          <div className="flex items-center gap-2">
-
-            <Sparkles
-              size={16}
-              className="text-violet-400"
-            />
-
-            <span className="text-sm text-zinc-500">
-              AI Match
-            </span>
-
-          </div>
-
-          <button
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              bg-white/5
-              px-4
-              py-2
-              text-sm
-              text-white
-              transition
-              hover:bg-white/10
-            "
-          >
-
-            Open
-
-            <ArrowUpRight
-              size={16}
-            />
-
-          </button>
-
+        {/* Confidence */}
+        <div className="shrink-0 text-right">
+          <p className="text-[10px] text-zinc-600 uppercase tracking-wide">Match</p>
+          <p className={`text-xl font-bold leading-none mt-0.5 tabular-nums ${confidenceCls(confidence)}`}>
+            {confidence}%
+          </p>
         </div>
 
       </div>
-    </Card>
+
+      {/* Snippet */}
+      <p className="mt-4 text-[13px] leading-[1.65] text-zinc-400 line-clamp-2">
+        {snippet}
+      </p>
+
+      {/* Footer */}
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Zap size={12} className="text-blue-500" strokeWidth={2} />
+          <span className="text-[11px] text-zinc-600">Semantic match</span>
+        </div>
+        <button
+          className="
+            flex items-center gap-1 rounded-md px-2.5 py-1
+            text-[12px] font-medium text-zinc-400
+            border border-white/[0.06] bg-white/[0.03]
+            transition-all duration-200
+            hover:text-white hover:border-white/[0.12] hover:bg-white/[0.07]
+          "
+        >
+          Open <ArrowUpRight size={12} />
+        </button>
+      </div>
+
+    </div>
   )
 }
