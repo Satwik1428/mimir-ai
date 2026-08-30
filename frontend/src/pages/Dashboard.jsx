@@ -4,29 +4,36 @@ import {
   HardDrive,
   Clock,
   FileText,
-  FileCode,
-  MonitorPlay,
   Brain,
   Search,
-  Sparkles,
-  ArrowUpRight,
   FolderOpen,
   RefreshCw,
+  ArrowUpRight,
+  ShieldCheck,
   Zap,
 } from "lucide-react"
 import { getDocumentsApi, indexFolderApi } from "@/lib/api"
 
-// Stat Card component
-function StatCard({ icon: Icon, iconCls, label, children }) {
+function MetricCard({ label, value, subtext, icon: Icon }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 flex flex-col gap-3">
+    <div className="rounded-xl border border-[#1d212b] bg-[#12141a] p-4.5 flex flex-col justify-between">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">{label}</span>
-        <div className={`flex h-7 w-7 items-center justify-center rounded-lg border ${iconCls}`}>
-          <Icon size={14} strokeWidth={2} />
+        <span className="text-[11px] font-medium text-[#717885] tracking-wide uppercase">
+          {label}
+        </span>
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#232733] bg-[#161922] text-[#8a919e]">
+          <Icon size={14} />
         </div>
       </div>
-      {children}
+
+      <div className="mt-3">
+        <div className="text-[26px] font-bold tracking-tight text-[#ededef] font-mono">
+          {value}
+        </div>
+        <p className="mt-0.5 text-[11px] text-[#636b74]">
+          {subtext}
+        </p>
+      </div>
     </div>
   )
 }
@@ -38,7 +45,6 @@ export function DashboardPage({ onNavigate }) {
     total_chunks: 4200
   })
   const [recentDocs, setRecentDocs] = useState([])
-  const [loading, setLoading] = useState(false)
   const [folderInput, setFolderInput] = useState("")
   const [indexing, setIndexing] = useState(false)
 
@@ -70,166 +76,148 @@ export function DashboardPage({ onNavigate }) {
   }
 
   return (
-    <div className="space-y-7">
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between">
+    <div className="space-y-6">
+      {/* ── Page Header ── */}
+      <div className="flex items-center justify-between pb-1 border-b border-[#181b22]">
         <div>
-          <h1 className="text-[28px] font-bold tracking-tight text-white">Dashboard</h1>
-          <p className="mt-1 text-[13px] text-zinc-500">
-            Private, on-device AI file memory for your local documents.
+          <h1 className="text-[20px] font-semibold text-[#ededef] tracking-tight">
+            Workspace Overview
+          </h1>
+          <p className="text-[12px] text-[#636b74] mt-0.5">
+            Local vector embeddings & document memory status
           </p>
         </div>
 
-        {/* Quick Launch Actions */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => onNavigate("Ask Mimir")}
-            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-500 transition-all"
+            className="flex items-center gap-1.5 rounded-lg bg-[#2563eb] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#1d4ed8] transition-colors shadow-sm"
           >
             <Brain size={13} />
-            Ask Mimir
+            <span>Ask Mimir</span>
           </button>
           <button
             onClick={() => onNavigate("Search")}
-            className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-all"
+            className="flex items-center gap-1.5 rounded-lg border border-[#262b38] bg-[#151820] px-3 py-1.5 text-[12px] font-medium text-[#c0c5cf] hover:bg-[#1a1e28] hover:text-white transition-colors"
           >
             <Search size={13} />
-            Search Files
+            <span>Search</span>
           </button>
         </div>
       </div>
 
-      {/* ── 3 Stat Cards ── */}
-      <div className="grid grid-cols-3 gap-4">
-        {/* Indexed Files */}
-        <StatCard
+      {/* ── Metric Cards ── */}
+      <div className="grid grid-cols-3 gap-3.5">
+        <MetricCard
+          label="Indexed Documents"
+          value={stats?.indexed_files?.toLocaleString() || "143,281"}
+          subtext="Active in local vector index"
           icon={Files}
-          iconCls="border-blue-500/20 bg-blue-500/10 text-blue-400"
-          label="Indexed Files"
-        >
-          <p className="text-[32px] font-bold tracking-tight leading-none text-white">
-            {stats?.indexed_files?.toLocaleString() || "143,281"}
-          </p>
-          <p className="text-[11px] text-zinc-500">files across all watched folders</p>
-        </StatCard>
-
-        {/* Storage Indexed */}
-        <StatCard
+        />
+        <MetricCard
+          label="Storage Footprint"
+          value={stats?.storage_indexed || "3.2 TB"}
+          subtext="FAISS vector store + text cache"
           icon={HardDrive}
-          iconCls="border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-          label="Storage Indexed"
-        >
-          <p className="text-[32px] font-bold tracking-tight leading-none text-white">
-            {stats?.storage_indexed || "3.2 TB"}
-          </p>
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[11px] text-zinc-500">Vector store size</span>
-              <span className="text-[11px] font-medium text-zinc-400">82%</span>
-            </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
-              <div className="h-full w-[82%] rounded-full bg-emerald-500" />
-            </div>
-          </div>
-        </StatCard>
-
-        {/* Recent Activity */}
-        <StatCard
-          icon={Clock}
-          iconCls="border-white/10 bg-white/[0.04] text-zinc-400"
+        />
+        <MetricCard
           label="Recent Activity"
-        >
-          <p className="text-[32px] font-bold tracking-tight leading-none text-white">
-            {recentDocs.length > 0 ? recentDocs.length : 3}
-          </p>
-          <p className="text-[11px] text-zinc-500">files indexed in the last 24 h</p>
-        </StatCard>
+          value={recentDocs.length > 0 ? recentDocs.length : 4}
+          subtext="Files touched in last session"
+          icon={Clock}
+        />
       </div>
 
-      {/* ── Index Folder Action Banner ── */}
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-500/10 text-blue-400">
-            <FolderOpen size={16} />
+      {/* ── Directory Indexer Console ── */}
+      <div className="rounded-xl border border-[#1d212b] bg-[#12141a] p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#232733] bg-[#161922] text-[#8a919e]">
+              <FolderOpen size={15} />
+            </div>
+            <div>
+              <p className="text-[13px] font-medium text-[#ededef]">Index Directory</p>
+              <p className="text-[11px] text-[#636b74]">Parse PDFs, DOCX, Markdown & extract vector embeddings locally</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[13px] font-medium text-zinc-200">Index a Local Directory</p>
-            <p className="text-[11px] text-zinc-500">Mimir extracts text, chunks, embeds, and indexes everything offline.</p>
-          </div>
+
+          <form onSubmit={handleIndex} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={folderInput}
+              onChange={(e) => setFolderInput(e.target.value)}
+              placeholder="e.g. C:/Users/Documents/Research"
+              className="
+                h-8.5 w-64 rounded-lg border border-[#232733] bg-[#0e1014]
+                px-3 text-[12px] font-mono text-[#ededef] placeholder:text-[#4b515d]
+                focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20
+              "
+            />
+            <button
+              type="submit"
+              disabled={indexing || !folderInput.trim()}
+              className="
+                h-8.5 rounded-lg bg-[#1a1d26] border border-[#272c3a] px-3 text-[12px] font-medium text-[#ededef]
+                hover:bg-[#202430] hover:border-[#32384a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors
+                flex items-center gap-1.5
+              "
+            >
+              {indexing ? <RefreshCw size={12} className="animate-spin text-blue-400" /> : <Zap size={12} className="text-blue-400" />}
+              <span>Index Path</span>
+            </button>
+          </form>
         </div>
-
-        <form onSubmit={handleIndex} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={folderInput}
-            onChange={(e) => setFolderInput(e.target.value)}
-            placeholder="Folder path (e.g. C:/Users/Documents)..."
-            className="
-              h-9 w-60 rounded-lg border border-white/[0.09] bg-white/[0.04]
-              px-3 text-[12px] text-zinc-200 placeholder:text-zinc-600
-              focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/15
-            "
-          />
-          <button
-            type="submit"
-            disabled={indexing || !folderInput.trim()}
-            className="
-              h-9 rounded-lg bg-blue-600 px-4 text-[12px] font-semibold text-white
-              hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all
-              flex items-center gap-1.5
-            "
-          >
-            {indexing ? <RefreshCw size={13} className="animate-spin" /> : <HardDrive size={13} />}
-            <span>Index</span>
-          </button>
-        </form>
       </div>
 
-      {/* ── Recent Activity List ── */}
-      <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3.5">
+      {/* ── Recent Documents Table ── */}
+      <div className="rounded-xl border border-[#1d212b] bg-[#12141a] overflow-hidden">
+        <div className="flex items-center justify-between border-b border-[#1a1d26] px-4 py-3 bg-[#111319]">
           <div className="flex items-center gap-2">
-            <Clock size={13} className="text-zinc-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-              Recent Indexed Documents
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#717885]">
+              Indexed Files
+            </span>
+            <span className="rounded bg-[#171a22] border border-[#222734] px-1.5 py-0.2 text-[10px] font-mono text-[#636b74]">
+              {recentDocs.length || 4}
             </span>
           </div>
+
           <button
             onClick={() => onNavigate("Documents")}
-            className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+            className="text-[11px] text-[#8a919e] hover:text-[#ededef] transition-colors"
           >
-            View all →
+            View all documents →
           </button>
         </div>
 
-        <div className="divide-y divide-white/[0.05]">
+        <div className="divide-y divide-[#181b23]">
           {(recentDocs.length > 0
             ? recentDocs
             : [
-                { filename: "Attention_Is_All_You_Need.pdf", file_type: "pdf", filepath: "/Research/Attention_Is_All_You_Need.pdf" },
-                { filename: "ML_Architecture_Deck.pptx", file_type: "pptx", filepath: "/Work/ML_Architecture_Deck.pptx" },
-                { filename: "DeepLearningNotes.md", file_type: "md", filepath: "/Notes/DeepLearningNotes.md" },
+                { filename: "Attention_Is_All_You_Need.pdf", file_type: "pdf", filepath: "/Documents/Research/Attention_Is_All_You_Need.pdf" },
+                { filename: "ML_Architecture_Deck.pptx", file_type: "pptx", filepath: "/Documents/Work/ML_Architecture_Deck.pptx" },
+                { filename: "DeepLearningNotes.md", file_type: "md", filepath: "/Documents/Notes/DeepLearningNotes.md" },
+                { filename: "Internship_Offer_Letter.pdf", file_type: "pdf", filepath: "/Documents/Career/Internship_Offer_Letter.pdf" },
               ]
           ).map((item, i) => (
             <div
               key={item.filename || i}
-              className="flex items-center justify-between px-5 py-3.5 hover:bg-white/[0.03] transition-colors"
+              className="flex items-center justify-between px-4 py-2.5 hover:bg-[#151720] transition-colors group"
             >
-              <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
-                  <FileText size={15} className="text-blue-400" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-zinc-200">{item.filename}</p>
-                  <p className="text-[11px] text-zinc-500 truncate">{item.filepath || "Indexed in knowledge base"}</p>
-                </div>
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <FileText size={14} className="text-[#636b74] group-hover:text-[#8a919e] shrink-0" />
+                <span className="text-[12.5px] font-medium text-[#ededef] truncate">
+                  {item.filename}
+                </span>
+                <span className="text-[11px] font-mono text-[#4b515d] truncate hidden md:inline">
+                  {item.filepath}
+                </span>
               </div>
 
               <button
                 onClick={() => onNavigate("Ask Mimir")}
-                className="flex items-center gap-1 text-[11px] font-medium text-zinc-400 hover:text-white transition-colors"
+                className="flex items-center gap-1 text-[11px] font-medium text-[#8a919e] hover:text-[#3b82f6] transition-colors shrink-0"
               >
-                <span>Ask</span>
+                <span>Query file</span>
                 <ArrowUpRight size={11} />
               </button>
             </div>

@@ -1,12 +1,5 @@
 import os
 from typing import List, Dict, Any, Optional
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-
-from extractor import extract_text_from_file
-import db
 
 INDEX_DIR = os.getenv("INDEX_DIR", os.path.join(os.path.dirname(__file__), "faiss_index"))
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
@@ -17,15 +10,17 @@ _vector_store = None
 def get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
+        from langchain_huggingface import HuggingFaceEmbeddings
         _embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
     return _embedding_model
 
 def get_vector_store():
     global _vector_store
     if _vector_store is None:
-        emb = get_embedding_model()
+        from langchain_community.vectorstores import FAISS
         if os.path.exists(INDEX_DIR) and os.path.exists(os.path.join(INDEX_DIR, "index.faiss")):
             try:
+                emb = get_embedding_model()
                 _vector_store = FAISS.load_local(INDEX_DIR, emb, allow_dangerous_deserialization=True)
             except Exception as e:
                 print(f"Could not load existing FAISS index: {e}")
@@ -39,6 +34,12 @@ def save_vector_store(vs):
     _vector_store.save_local(INDEX_DIR)
 
 def index_files(file_paths: List[str]) -> Dict[str, Any]:
+    import db
+    from extractor import extract_text_from_file
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    from langchain_core.documents import Document
+    from langchain_community.vectorstores import FAISS
+
     db.init_db()
     splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
     all_chunks: List[Document] = []
@@ -127,15 +128,11 @@ def search_documents(query: str, k: int = 5) -> List[Dict[str, Any]]:
     if vs is None:
         return []
 
-    # search with score (L2 distance or inner product)
     docs_and_scores = vs.similarity_search_with_score(query, k=k)
     results = []
 
     for doc, score in docs_and_scores:
-        # FAISS returns L2 distance by default (lower is closer)
-        # Convert distance to approximate percentage confidence
         confidence = max(10, min(99, int(100 / (1.0 + float(score)))))
-        
         results.append({
             "title": doc.metadata.get("filename", "Unknown"),
             "filename": doc.metadata.get("filename", "Unknown"),

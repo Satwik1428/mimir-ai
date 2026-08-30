@@ -1,28 +1,28 @@
 import { useState, useEffect } from "react"
-import { Search as SearchIcon, Clock, FileSearch, Sparkles, Brain } from "lucide-react"
+import { Search as SearchIcon, Clock, FileSearch, Sparkles, Brain, CornerDownLeft } from "lucide-react"
 import { ResultCard } from "@/components/search/ResultCard"
 import { searchFilesApi } from "@/lib/api"
 
-const RECENT_QUERIES = [
-  "transformer attention architecture",
+const SAMPLE_QUERIES = [
+  "transformer self-attention architecture",
   "internship offer notice period",
-  "deep learning gradient descent notes",
+  "optimization and gradient descent",
 ]
 
 function SkeletonCard() {
   return (
-    <div className="animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.025] p-5">
+    <div className="animate-pulse rounded-xl border border-[#1d212b] bg-[#12141a] p-4">
       <div className="flex items-start gap-3">
-        <div className="h-9 w-9 shrink-0 rounded-lg bg-white/[0.07]" />
+        <div className="h-8 w-8 shrink-0 rounded-lg bg-[#1a1d26]" />
         <div className="flex-1 space-y-2 pt-0.5">
-          <div className="h-3 w-3/5 rounded bg-white/[0.08]" />
-          <div className="h-2.5 w-14 rounded bg-white/[0.06]" />
+          <div className="h-3 w-2/5 rounded bg-[#1a1d26]" />
+          <div className="h-2 w-1/5 rounded bg-[#161922]" />
         </div>
-        <div className="h-8 w-10 shrink-0 rounded bg-white/[0.07]" />
+        <div className="h-6 w-12 shrink-0 rounded bg-[#1a1d26]" />
       </div>
-      <div className="mt-4 space-y-2">
-        <div className="h-2.5 w-full rounded bg-white/[0.06]" />
-        <div className="h-2.5 w-4/5 rounded bg-white/[0.06]" />
+      <div className="mt-3 pl-11 space-y-1.5">
+        <div className="h-2.5 w-full rounded bg-[#181b24]" />
+        <div className="h-2.5 w-4/5 rounded bg-[#181b24]" />
       </div>
     </div>
   )
@@ -30,15 +30,13 @@ function SkeletonCard() {
 
 function EmptyState({ query }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03]">
-        <FileSearch size={22} className="text-zinc-600" />
+    <div className="flex flex-col items-center justify-center py-14 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-[#232733] bg-[#141720] text-[#636b74]">
+        <FileSearch size={18} />
       </div>
-      <p className="text-sm font-semibold text-zinc-300">No results found</p>
-      <p className="mt-1.5 max-w-[280px] text-[13px] leading-5 text-zinc-500">
-        No files matched{" "}
-        <span className="font-medium text-zinc-400">"{query}"</span>. Try
-        rephrasing or index additional folders.
+      <p className="text-[13px] font-medium text-[#ededef]">No matching documents found</p>
+      <p className="mt-1 max-w-[280px] text-[11.5px] text-[#636b74]">
+        No indexed files matched <span className="font-mono text-[#8a919e]">"{query}"</span>. Try adjusting your search or index additional directories.
       </p>
     </div>
   )
@@ -50,12 +48,9 @@ export function SearchPage({ onNavigateToAsk }) {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
 
-  // Initial load with default semantic search
   useEffect(() => {
     searchFilesApi("transformer attention").then((res) => {
-      if (res?.results) {
-        setResults(res.results)
-      }
+      if (res?.results) setResults(res.results)
     })
   }, [])
 
@@ -73,31 +68,30 @@ export function SearchPage({ onNavigateToAsk }) {
   }
 
   return (
-    <div className="space-y-7">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+    <div className="space-y-6">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between pb-1 border-b border-[#181b22]">
         <div>
-          <h1 className="text-[28px] font-bold tracking-tight text-white flex items-center gap-2.5">
-            <SearchIcon className="text-blue-400" size={26} />
-            Semantic File Search
+          <h1 className="text-[20px] font-semibold text-[#ededef] tracking-tight">
+            Semantic Search
           </h1>
-          <p className="mt-1 text-[13px] text-zinc-500">
-            Search files by concept and meaning — no need to remember exact filenames.
+          <p className="text-[12px] text-[#636b74] mt-0.5">
+            Vector similarity retrieval across your local document knowledge base
           </p>
         </div>
 
         {query && (
           <button
             onClick={() => onNavigateToAsk && onNavigateToAsk(query)}
-            className="flex items-center gap-1.5 rounded-lg border border-blue-500/25 bg-blue-600/10 px-3.5 py-2 text-xs font-semibold text-blue-400 hover:bg-blue-600/20 transition-all"
+            className="flex items-center gap-1.5 rounded-lg border border-[#262b38] bg-[#151820] px-3 py-1.5 text-[12px] font-medium text-blue-400 hover:bg-[#1a1e28] hover:text-blue-300 transition-colors"
           >
-            <Brain size={13} />
+            <Brain size={12} />
             <span>Ask Mimir this query</span>
           </button>
         )}
       </div>
 
-      {/* Search Input Bar */}
+      {/* ── Search Input ── */}
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -106,21 +100,19 @@ export function SearchPage({ onNavigateToAsk }) {
         className="relative"
       >
         <SearchIcon
-          size={16}
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-          strokeWidth={2}
+          size={15}
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#636b74]"
         />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. Find the paper discussing multi-head attention mechanisms..."
+          placeholder="Describe what you're looking for in plain language..."
           className="
-            h-12 w-full rounded-xl border border-white/[0.09] bg-white/[0.04]
-            pl-11 pr-28 text-[13px] text-white placeholder:text-zinc-500
-            transition-all duration-200
-            focus:border-blue-500/40 focus:bg-white/[0.06] focus:outline-none
-            focus:ring-2 focus:ring-blue-500/15
+            h-11 w-full rounded-xl border border-[#232733] bg-[#12141a]
+            pl-10 pr-24 text-[13px] text-[#ededef] placeholder:text-[#4b515d]
+            focus:border-blue-500/50 focus:bg-[#14171f] focus:ring-1 focus:ring-blue-500/20
+            transition-colors
           "
         />
         <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -128,29 +120,28 @@ export function SearchPage({ onNavigateToAsk }) {
             type="submit"
             disabled={loading || !query.trim()}
             className="
-              rounded-lg bg-blue-600 px-4 py-1.5
-              text-[12px] font-semibold text-white
-              transition-all duration-200
-              hover:bg-blue-500
-              disabled:opacity-40 disabled:cursor-not-allowed
+              flex items-center gap-1 rounded-lg bg-[#2563eb] px-3 py-1.5
+              text-[11.5px] font-medium text-white transition-colors
+              hover:bg-[#1d4ed8] disabled:opacity-40 disabled:cursor-not-allowed
             "
           >
-            {loading ? "Searching…" : "Search"}
+            <span>{loading ? "Searching..." : "Search"}</span>
+            <CornerDownLeft size={11} />
           </button>
         </div>
       </form>
 
-      {/* Main Grid: Results & Side Panel */}
-      <div className="grid grid-cols-[1fr_240px] gap-6">
-        {/* Results Column */}
+      {/* ── Main Layout: Results & Aside ── */}
+      <div className="grid grid-cols-[1fr_240px] gap-5">
+        {/* Results Stream */}
         <div className="space-y-3">
           <div className="flex items-center justify-between pb-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-              Matching Documents
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#717885]">
+              Ranked Matches
             </span>
             {!loading && results.length > 0 && (
-              <span className="text-[11px] text-zinc-500">
-                {results.length} {results.length === 1 ? "match" : "matches"} found
+              <span className="text-[11px] font-mono text-[#636b74]">
+                {results.length} files found
               </span>
             )}
           </div>
@@ -162,7 +153,7 @@ export function SearchPage({ onNavigateToAsk }) {
               <SkeletonCard />
             </div>
           ) : searched && results.length === 0 ? (
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.025]">
+            <div className="rounded-xl border border-[#1d212b] bg-[#12141a]">
               <EmptyState query={query} />
             </div>
           ) : (
@@ -178,18 +169,16 @@ export function SearchPage({ onNavigateToAsk }) {
           )}
         </div>
 
-        {/* Side Panel: Suggestions & Guidance */}
+        {/* Aside Sidebar */}
         <div className="space-y-3">
-          {/* Quick Concept Queries */}
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles size={13} className="text-blue-400" />
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-                Sample Queries
-              </span>
+          {/* Quick Prompts */}
+          <div className="rounded-xl border border-[#1d212b] bg-[#12141a] p-3.5">
+            <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#717885]">
+              <Sparkles size={11} className="text-blue-400" />
+              <span>Suggested Queries</span>
             </div>
             <div className="flex flex-col gap-1">
-              {RECENT_QUERIES.map((q) => (
+              {SAMPLE_QUERIES.map((q) => (
                 <button
                   key={q}
                   onClick={() => {
@@ -197,9 +186,9 @@ export function SearchPage({ onNavigateToAsk }) {
                     handleSearch(q)
                   }}
                   className="
-                    flex w-full items-center justify-between rounded-lg px-2.5 py-2
-                    text-left text-[11px] text-zinc-300 transition-all duration-150
-                    hover:bg-white/[0.05] border border-transparent hover:border-white/[0.06]
+                    flex w-full items-center justify-between rounded-lg px-2 py-1.5
+                    text-left text-[11.5px] text-[#8a919e] transition-colors
+                    hover:bg-[#181b24] hover:text-[#ededef]
                   "
                 >
                   <span className="truncate">{q}</span>
@@ -208,15 +197,13 @@ export function SearchPage({ onNavigateToAsk }) {
             </div>
           </div>
 
-          {/* On-Device Search Tip */}
-          <div className="rounded-xl border border-blue-500/[0.15] bg-blue-500/[0.05] p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-400 mb-1.5">
-              Natural Language
+          {/* Technology Note */}
+          <div className="rounded-xl border border-[#1d212b] bg-[#12141a] p-3.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#717885] mb-1">
+              Embedding Search
             </p>
-            <p className="text-[12px] leading-[1.6] text-zinc-400">
-              Mimir embeds document text into vectors. You can search concepts like{" "}
-              <span className="text-zinc-200">"internship salary and terms"</span>{" "}
-              even if the file is named <span className="text-zinc-300">Offer.pdf</span>.
+            <p className="text-[11.5px] leading-relaxed text-[#636b74]">
+              Files are indexed using <span className="font-mono text-[#8a919e]">all-MiniLM-L6-v2</span>. Semantic matches are scored based on vector cosine proximity.
             </p>
           </div>
         </div>
