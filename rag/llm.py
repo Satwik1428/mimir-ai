@@ -7,7 +7,7 @@ load_dotenv()
 from indexer import get_vector_store
 
 def get_llm():
-    use_local = os.getenv("USE_LOCAL_LLM", "false").lower() in ("true", "1", "yes")
+    use_local = os.getenv("USE_LOCAL_LLM", "true").lower() in ("true", "1", "yes")
     
     if use_local:
         try:

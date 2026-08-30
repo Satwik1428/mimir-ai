@@ -2,3 +2,5 @@
 **/.env
 __pycache__/
 .ipynb_checkpoints/
+mimir.db
+faiss_index/
