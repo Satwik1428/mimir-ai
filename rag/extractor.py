@@ -37,11 +37,16 @@ def extract_docx_text(filepath: str) -> str:
         return ""
 
 def extract_plain_text(filepath: str) -> str:
-    encodings = ["utf-8", "latin-1", "cp1252"]
+    encodings = ["utf-8-sig", "utf-8", "utf-16", "utf-16-le", "utf-16-be", "cp1252", "latin-1"]
     for enc in encodings:
         try:
             with open(filepath, "r", encoding=enc) as f:
-                return f.read()
+                content = f.read()
+                # If decoded text looks valid (does not have pervasive null bytes)
+                if "\x00" in content:
+                    content = content.replace("\x00", "")
+                if content.strip():
+                    return content
         except Exception:
             continue
     return ""

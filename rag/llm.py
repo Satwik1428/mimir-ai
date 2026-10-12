@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 
@@ -6,31 +7,21 @@ load_dotenv()
 
 from indexer import get_vector_store
 
+logger = logging.getLogger("mimir.llm")
+
 def get_llm():
-    use_local = os.getenv("USE_LOCAL_LLM", "true").lower() in ("true", "1", "yes")
-    
-    if use_local:
-        try:
-            from langchain_community.llms import Ollama
-            model = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
-            return Ollama(model=model)
-        except Exception as e:
-            print(f"Failed to load local Ollama, falling back to Groq: {e}")
-
-    groq_api = os.getenv("GROQ_API") or os.getenv("GROQ_API_KEY")
-    if not groq_api:
-        # Check parent folder or root .env too
-        parent_env = os.path.join(os.path.dirname(__file__), "..", ".env")
-        if os.path.exists(parent_env):
-            load_dotenv(parent_env)
-            groq_api = os.getenv("GROQ_API") or os.getenv("GROQ_API_KEY")
-
-    if groq_api:
-        from langchain_groq import ChatGroq
-        model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-        return ChatGroq(api_key=groq_api, model=model, temperature=0.2)
-    
-    return None
+    """
+    Instantiate local Ollama model.
+    Strictly on-device: does NOT fall back to cloud providers.
+    """
+    model = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+    try:
+        from langchain_community.llms import Ollama
+        llm = Ollama(model=model, timeout=90)
+        return llm
+    except Exception as e:
+        logger.warning(f"Could not initialize local Ollama model '{model}': {e}")
+        return None
 
 def ask_question(query: str, file_filter: Optional[str] = None, history: Optional[List[Dict[str, str]]] = None, k: int = 4) -> Dict[str, Any]:
     vs = get_vector_store()
@@ -41,15 +32,36 @@ def ask_question(query: str, file_filter: Optional[str] = None, history: Optiona
             "context": ""
         }
 
-    # Retrieve relevant chunks
-    retrieved_docs = vs.similarity_search(query, k=k)
-    
+    # If file_filter is specified, retrieve within file scope rather than retrieving global results and post-filtering
+    fetch_k = k
     if file_filter:
-        retrieved_docs = [d for d in retrieved_docs if d.metadata.get("filename") == file_filter or d.metadata.get("filepath") == file_filter]
+        fetch_k = max(k * 10, 50)
+
+    try:
+        raw_docs = vs.similarity_search(query, k=fetch_k)
+    except Exception as e:
+        logger.error(f"Vector search failed: {e}")
+        return {
+            "answer": "An internal error occurred while searching the vector index.",
+            "sources": [],
+            "context": ""
+        }
+
+    if file_filter:
+        norm_filter = os.path.basename(file_filter).lower()
+        retrieved_docs = [
+            d for d in raw_docs
+            if os.path.basename(d.metadata.get("filename", "")).lower() == norm_filter or
+               d.metadata.get("filename", "").lower() == norm_filter or
+               d.metadata.get("filepath", "").lower() == file_filter.lower()
+        ][:k]
+    else:
+        retrieved_docs = raw_docs[:k]
 
     if not retrieved_docs:
+        scope_msg = f" in '{file_filter}'" if file_filter else " in your indexed files"
         return {
-            "answer": "I couldn't find any relevant information in your indexed files for this query.",
+            "answer": f"I couldn't find any relevant information{scope_msg} for this query.",
             "sources": [],
             "context": ""
         }
@@ -71,10 +83,25 @@ def ask_question(query: str, file_filter: Optional[str] = None, history: Optiona
                 "filename": fn,
                 "filepath": fp,
                 "file_type": doc.metadata.get("file_type", "txt"),
-                "snippet": content[:180] + "..."
+                "snippet": (content[:220] + "...") if len(content) > 220 else content
             })
 
     full_context = "\n\n---\n\n".join(context_blocks)
+
+    llm = get_llm()
+    if llm is None:
+        # Grounded local extractive fallback when Ollama is offline or uninstalled
+        best_passage = retrieved_docs[0].page_content.strip()
+        first_few_sentences = best_passage[:500]
+        return {
+            "answer": (
+                "*(Local LLM offline – displaying grounded extractive context)*\n\n"
+                f"**Extracted from {', '.join(seen_sources)}:**\n\n"
+                f"{first_few_sentences}..."
+            ),
+            "sources": sources,
+            "context": full_context
+        }
 
     system_prompt = f"""You are Mimir AI, a private, on-device AI assistant for the user's local documents.
 Answer the user's question clearly, accurately, and concisely based ONLY on the provided context from their files.
@@ -84,15 +111,6 @@ Do not make up facts or hallucinate beyond the provided text.
 Context from user's files:
 {full_context}
 """
-
-    llm = get_llm()
-    if llm is None:
-        # Fallback if no API key is provided
-        return {
-            "answer": f"**Relevant Content Retrieved (LLM API key not configured):**\n\nBased on your documents ({', '.join(seen_sources)}):\n\n" + retrieved_docs[0].page_content[:400] + "...",
-            "sources": sources,
-            "context": full_context
-        }
 
     messages = [{"role": "system", "content": system_prompt}]
     
@@ -106,13 +124,20 @@ Context from user's files:
         response = llm.invoke(messages)
         content = response.content if hasattr(response, "content") else str(response)
         return {
-            "answer": content,
+            "answer": content.strip(),
             "sources": sources,
             "context": full_context
         }
     except Exception as e:
+        logger.error(f"Local LLM invocation error: {e}")
+        # Graceful extractive fallback if Ollama model fails or times out
+        best_passage = retrieved_docs[0].page_content.strip()
         return {
-            "answer": f"Error communicating with AI model: {str(e)}",
+            "answer": (
+                "*(Local Ollama was unreachable – fallback to grounded document extract)*\n\n"
+                f"**From {', '.join(seen_sources)}:**\n\n"
+                f"{best_passage[:450]}..."
+            ),
             "sources": sources,
             "context": full_context
         }

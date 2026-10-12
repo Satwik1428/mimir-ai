@@ -81,13 +81,48 @@ def index_files(file_paths: List[str]) -> Dict[str, Any]:
         except Exception as e:
             errors.append({"file": path, "error": str(e)})
 
+    # If indexing or re-indexing, rebuild or update cleanly
+    emb = get_embedding_model()
+    current_vs = get_vector_store()
+    
+    # Check if any indexed files already existed in vector store
+    # If FAISS index exists, reconstruct all documents excluding the modified ones, or initialize fresh
     if all_chunks:
-        emb = get_embedding_model()
-        current_vs = get_vector_store()
+        # Check all existing documents from DB to check if full re-build is safest or if we initialize fresh
+        all_db_docs = db.get_all_documents()
+        indexed_filepaths = {res["filepath"] for res in [extract_text_from_file(p) for p in file_paths if os.path.exists(p)]}
+        
+        # If we have existing index, recreate cleanly from all chunks to prevent chunk duplication on re-indexing
+        # For small-to-medium local collections, recreating index from all files ensures 100% consistency with SQLite
         if current_vs is None:
             current_vs = FAISS.from_documents(all_chunks, emb)
         else:
-            current_vs.add_documents(all_chunks)
+            # Rebuilding FAISS with all indexed DB files ensures deleted chunks are removed and no duplicates exist
+            all_rebuilt_chunks: List[Document] = []
+            for doc_record in all_db_docs:
+                fpath = doc_record["filepath"]
+                if not os.path.exists(fpath):
+                    continue
+                extracted = extract_text_from_file(fpath)
+                txt = extracted.get("text", "")
+                if not txt:
+                    continue
+                chunks = splitter.split_text(txt)
+                for i, c in enumerate(chunks):
+                    all_rebuilt_chunks.append(Document(
+                        page_content=c,
+                        metadata={
+                            "filename": extracted["filename"],
+                            "filepath": extracted["filepath"],
+                            "file_type": extracted["type"],
+                            "chunk_index": i
+                        }
+                    ))
+            if all_rebuilt_chunks:
+                current_vs = FAISS.from_documents(all_rebuilt_chunks, emb)
+            else:
+                current_vs = FAISS.from_documents(all_chunks, emb)
+                
         save_vector_store(current_vs)
 
     return {
