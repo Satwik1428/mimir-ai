@@ -48,20 +48,20 @@ export function SearchPage({ onNavigateToAsk }) {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
 
-  useEffect(() => {
-    searchFilesApi("transformer attention").then((res) => {
-      if (res?.results) setResults(res.results)
-    })
-  }, [])
+  const [searchError, setSearchError] = useState(null)
 
   const handleSearch = async (queryText = query) => {
     const q = queryText.trim()
     if (!q) return
     setLoading(true)
     setSearched(true)
+    setSearchError(null)
     try {
       const res = await searchFilesApi(q)
       setResults(res.results || [])
+    } catch (err) {
+      setSearchError(err.message || "Failed to execute search.")
+      setResults([])
     } finally {
       setLoading(false)
     }
@@ -146,7 +146,11 @@ export function SearchPage({ onNavigateToAsk }) {
             )}
           </div>
 
-          {loading ? (
+          {searchError ? (
+            <div className="rounded-xl border border-red-900/30 bg-red-950/20 p-4 text-[12px] text-red-400">
+              {searchError}
+            </div>
+          ) : loading ? (
             <div className="space-y-3">
               <SkeletonCard />
               <SkeletonCard />
@@ -155,6 +159,10 @@ export function SearchPage({ onNavigateToAsk }) {
           ) : searched && results.length === 0 ? (
             <div className="rounded-xl border border-[#1d212b] bg-[#12141a]">
               <EmptyState query={query} />
+            </div>
+          ) : !searched ? (
+            <div className="rounded-xl border border-[#1d212b] bg-[#12141a] p-8 text-center text-[#636b74] text-[12px]">
+              Enter a search query above or choose a suggested query to search through your local documents.
             </div>
           ) : (
             <div className="space-y-2.5">

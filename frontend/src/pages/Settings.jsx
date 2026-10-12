@@ -146,10 +146,10 @@ export function SettingsPage() {
 
         <SettingRow
           label="Inference Engine"
-          description="Qwen 2.5 3B (Local quantized) / Groq acceleration fallback"
+          description="Ollama Qwen 2.5 3B (Local quantized) / Grounded Extractive Fallback"
         >
           <span className="font-mono text-[11px] text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">
-            Active
+            Local Ollama
           </span>
         </SettingRow>
       </Section>

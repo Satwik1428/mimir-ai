@@ -40,21 +40,27 @@ function MetricCard({ label, value, subtext, icon: Icon }) {
 
 export function DashboardPage({ onNavigate }) {
   const [stats, setStats] = useState({
-    indexed_files: 143281,
-    storage_indexed: "3.2 TB",
-    total_chunks: 4200
+    indexed_files: 0,
+    storage_indexed: "0 KB",
+    total_chunks: 0
   })
   const [recentDocs, setRecentDocs] = useState([])
   const [folderInput, setFolderInput] = useState("")
   const [indexing, setIndexing] = useState(false)
+  const [indexError, setIndexError] = useState(null)
+  const [indexSuccess, setIndexSuccess] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
+      setLoading(true)
       const res = await getDocumentsApi()
       if (res?.stats) setStats(res.stats)
-      if (res?.documents) setRecentDocs(res.documents.slice(0, 4))
+      if (res?.documents) setRecentDocs(res.documents.slice(0, 5))
     } catch (e) {
-      console.error(e)
+      console.error("Failed to load dashboard data:", e)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -66,10 +72,15 @@ export function DashboardPage({ onNavigate }) {
     e.preventDefault()
     if (!folderInput.trim() || indexing) return
     setIndexing(true)
+    setIndexError(null)
+    setIndexSuccess(null)
     try {
-      await indexFolderApi(folderInput.trim())
+      const res = await indexFolderApi(folderInput.trim())
       setFolderInput("")
+      setIndexSuccess(`Indexed ${res.data?.indexed_count || 0} files (${res.data?.total_chunks || 0} chunks).`)
       await loadData()
+    } catch (err) {
+      setIndexError(err.message || "Failed to index path.")
     } finally {
       setIndexing(false)
     }
@@ -110,62 +121,75 @@ export function DashboardPage({ onNavigate }) {
       <div className="grid grid-cols-3 gap-3.5">
         <MetricCard
           label="Indexed Documents"
-          value={stats?.indexed_files?.toLocaleString() || "143,281"}
+          value={loading ? "..." : (stats?.indexed_files || 0).toLocaleString()}
           subtext="Active in local vector index"
           icon={Files}
         />
         <MetricCard
           label="Storage Footprint"
-          value={stats?.storage_indexed || "3.2 TB"}
+          value={loading ? "..." : (stats?.storage_indexed || "0 KB")}
           subtext="FAISS vector store + text cache"
           icon={HardDrive}
         />
         <MetricCard
-          label="Recent Activity"
-          value={recentDocs.length > 0 ? recentDocs.length : 4}
-          subtext="Files touched in last session"
+          label="Total Chunks"
+          value={loading ? "..." : (stats?.total_chunks || 0).toLocaleString()}
+          subtext="Embedded text chunks in memory"
           icon={Clock}
         />
       </div>
 
       {/* ── Directory Indexer Console ── */}
       <div className="rounded-xl border border-[#1d212b] bg-[#12141a] p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#232733] bg-[#161922] text-[#8a919e]">
-              <FolderOpen size={15} />
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#232733] bg-[#161922] text-[#8a919e]">
+                <FolderOpen size={15} />
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-[#ededef]">Index Directory</p>
+                <p className="text-[11px] text-[#636b74]">Parse PDFs, DOCX, Markdown & extract vector embeddings locally</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[13px] font-medium text-[#ededef]">Index Directory</p>
-              <p className="text-[11px] text-[#636b74]">Parse PDFs, DOCX, Markdown & extract vector embeddings locally</p>
-            </div>
+
+            <form onSubmit={handleIndex} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={folderInput}
+                onChange={(e) => setFolderInput(e.target.value)}
+                placeholder="e.g. C:/Projects/Hackathon/MimirAi/testdocs"
+                className="
+                  h-8.5 w-72 rounded-lg border border-[#232733] bg-[#0e1014]
+                  px-3 text-[12px] font-mono text-[#ededef] placeholder:text-[#4b515d]
+                  focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20
+                "
+              />
+              <button
+                type="submit"
+                disabled={indexing || !folderInput.trim()}
+                className="
+                  h-8.5 rounded-lg bg-[#1a1d26] border border-[#272c3a] px-3 text-[12px] font-medium text-[#ededef]
+                  hover:bg-[#202430] hover:border-[#32384a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors
+                  flex items-center gap-1.5
+                "
+              >
+                {indexing ? <RefreshCw size={12} className="animate-spin text-blue-400" /> : <Zap size={12} className="text-blue-400" />}
+                <span>{indexing ? "Indexing..." : "Index Path"}</span>
+              </button>
+            </form>
           </div>
 
-          <form onSubmit={handleIndex} className="flex items-center gap-2">
-            <input
-              type="text"
-              value={folderInput}
-              onChange={(e) => setFolderInput(e.target.value)}
-              placeholder="e.g. C:/Users/Documents/Research"
-              className="
-                h-8.5 w-64 rounded-lg border border-[#232733] bg-[#0e1014]
-                px-3 text-[12px] font-mono text-[#ededef] placeholder:text-[#4b515d]
-                focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20
-              "
-            />
-            <button
-              type="submit"
-              disabled={indexing || !folderInput.trim()}
-              className="
-                h-8.5 rounded-lg bg-[#1a1d26] border border-[#272c3a] px-3 text-[12px] font-medium text-[#ededef]
-                hover:bg-[#202430] hover:border-[#32384a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors
-                flex items-center gap-1.5
-              "
-            >
-              {indexing ? <RefreshCw size={12} className="animate-spin text-blue-400" /> : <Zap size={12} className="text-blue-400" />}
-              <span>Index Path</span>
-            </button>
-          </form>
+          {indexError && (
+            <div className="text-[11.5px] text-red-400 bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-1.5">
+              {indexError}
+            </div>
+          )}
+          {indexSuccess && (
+            <div className="text-[11.5px] text-emerald-400 bg-emerald-950/20 border border-emerald-900/30 rounded-lg px-3 py-1.5">
+              {indexSuccess}
+            </div>
+          )}
         </div>
       </div>
 
@@ -177,7 +201,7 @@ export function DashboardPage({ onNavigate }) {
               Indexed Files
             </span>
             <span className="rounded bg-[#171a22] border border-[#222734] px-1.5 py-0.2 text-[10px] font-mono text-[#636b74]">
-              {recentDocs.length || 4}
+              {recentDocs.length}
             </span>
           </div>
 
@@ -189,40 +213,38 @@ export function DashboardPage({ onNavigate }) {
           </button>
         </div>
 
-        <div className="divide-y divide-[#181b23]">
-          {(recentDocs.length > 0
-            ? recentDocs
-            : [
-                { filename: "Attention_Is_All_You_Need.pdf", file_type: "pdf", filepath: "/Documents/Research/Attention_Is_All_You_Need.pdf" },
-                { filename: "ML_Architecture_Deck.pptx", file_type: "pptx", filepath: "/Documents/Work/ML_Architecture_Deck.pptx" },
-                { filename: "DeepLearningNotes.md", file_type: "md", filepath: "/Documents/Notes/DeepLearningNotes.md" },
-                { filename: "Internship_Offer_Letter.pdf", file_type: "pdf", filepath: "/Documents/Career/Internship_Offer_Letter.pdf" },
-              ]
-          ).map((item, i) => (
-            <div
-              key={item.filename || i}
-              className="flex items-center justify-between px-4 py-2.5 hover:bg-[#151720] transition-colors group"
-            >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <FileText size={14} className="text-[#636b74] group-hover:text-[#8a919e] shrink-0" />
-                <span className="text-[12.5px] font-medium text-[#ededef] truncate">
-                  {item.filename}
-                </span>
-                <span className="text-[11px] font-mono text-[#4b515d] truncate hidden md:inline">
-                  {item.filepath}
-                </span>
-              </div>
-
-              <button
-                onClick={() => onNavigate("Ask Mimir")}
-                className="flex items-center gap-1 text-[11px] font-medium text-[#8a919e] hover:text-[#3b82f6] transition-colors shrink-0"
+        {recentDocs.length === 0 ? (
+          <div className="p-8 text-center text-[#636b74] text-[12px]">
+            No documents indexed yet. Enter a local folder path above to start indexing.
+          </div>
+        ) : (
+          <div className="divide-y divide-[#181b23]">
+            {recentDocs.map((item, i) => (
+              <div
+                key={item.filepath || item.filename || i}
+                className="flex items-center justify-between px-4 py-2.5 hover:bg-[#151720] transition-colors group"
               >
-                <span>Query file</span>
-                <ArrowUpRight size={11} />
-              </button>
-            </div>
-          ))}
-        </div>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <FileText size={14} className="text-[#636b74] group-hover:text-[#8a919e] shrink-0" />
+                  <span className="text-[12.5px] font-medium text-[#ededef] truncate">
+                    {item.filename}
+                  </span>
+                  <span className="text-[11px] font-mono text-[#4b515d] truncate hidden md:inline">
+                    {item.filepath}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => onNavigate("Ask Mimir")}
+                  className="flex items-center gap-1 text-[11px] font-medium text-[#8a919e] hover:text-[#3b82f6] transition-colors shrink-0"
+                >
+                  <span>Query file</span>
+                  <ArrowUpRight size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

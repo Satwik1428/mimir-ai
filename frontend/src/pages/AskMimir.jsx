@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from "react"
 import {
-  Send,
-  Brain,
   FileText,
   Sparkles,
   Bot,
