@@ -16,6 +16,22 @@ export async function indexFolderApi(folderPath) {
   return await res.json();
 }
 
+export async function uploadFilesApi(fileList) {
+  const formData = new FormData();
+  for (let i = 0; i < fileList.length; i++) {
+    formData.append("files", fileList[i]);
+  }
+  const res = await fetch(`${API_BASE}/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}: Failed to upload and index files`);
+  }
+  return await res.json();
+}
+
 export async function getDocumentsApi() {
   const res = await fetch(`${API_BASE}/documents`);
   if (!res.ok) {

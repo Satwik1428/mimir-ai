@@ -91,6 +91,38 @@ def index_endpoint(req: IndexRequest):
         raise HTTPException(status_code=500, detail="An error occurred while indexing files.")
 
 
+from fastapi import UploadFile, File
+import shutil
+
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_docs")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/upload")
+async def upload_files_endpoint(files: List[UploadFile] = File(...)):
+    """
+    Allow users to select files from their OS File Manager (Finder / File Explorer)
+    and index them into Mimir.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided.")
+
+    saved_paths = []
+    for file in files:
+        safe_name = os.path.basename(file.filename)
+        dest_path = os.path.join(UPLOAD_DIR, safe_name)
+        with open(dest_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        saved_paths.append(dest_path)
+
+    try:
+        result = index_files(saved_paths)
+        return {"status": "success", "data": result}
+    except Exception as e:
+        import logging
+        logging.getLogger("mimir.api").error(f"Error indexing uploaded files: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to index uploaded files.")
+
+
 @app.get("/documents")
 def documents_endpoint():
     """

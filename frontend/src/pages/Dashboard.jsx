@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Files,
   HardDrive,
@@ -11,8 +11,9 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Zap,
+  Upload,
 } from "lucide-react"
-import { getDocumentsApi, indexFolderApi } from "@/lib/api"
+import { getDocumentsApi, indexFolderApi, uploadFilesApi } from "@/lib/api"
 
 function MetricCard({ label, value, subtext, icon: Icon }) {
   return (
@@ -67,6 +68,26 @@ export function DashboardPage({ onNavigate }) {
   useEffect(() => {
     loadData()
   }, [])
+
+  const fileInputRef = useRef(null)
+
+  const handleFileUpload = async (e) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setIndexing(true)
+    setIndexError(null)
+    setIndexSuccess(null)
+    try {
+      const res = await uploadFilesApi(files)
+      setIndexSuccess(`Indexed ${res.data?.indexed_count || 0} files from file manager (${res.data?.total_chunks || 0} chunks).`)
+      await loadData()
+    } catch (err) {
+      setIndexError(err.message || "Failed to index selected files.")
+    } finally {
+      setIndexing(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
 
   const handleIndex = async (e) => {
     e.preventDefault()
@@ -139,45 +160,70 @@ export function DashboardPage({ onNavigate }) {
         />
       </div>
 
-      {/* ── Directory Indexer Console ── */}
+      {/* ── Directory & File Indexer Console ── */}
       <div className="rounded-xl border border-[#1d212b] bg-[#12141a] p-4">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#232733] bg-[#161922] text-[#8a919e]">
                 <FolderOpen size={15} />
               </div>
               <div>
-                <p className="text-[13px] font-medium text-[#ededef]">Index Directory</p>
-                <p className="text-[11px] text-[#636b74]">Parse PDFs, DOCX, Markdown & extract vector embeddings locally</p>
+                <p className="text-[13px] font-medium text-[#ededef]">Add Files to Knowledge Base</p>
+                <p className="text-[11px] text-[#636b74]">Select files via File Explorer or specify a folder path to index</p>
               </div>
             </div>
 
-            <form onSubmit={handleIndex} className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Hidden file input for file manager */}
               <input
-                type="text"
-                value={folderInput}
-                onChange={(e) => setFolderInput(e.target.value)}
-                placeholder="e.g. C:/Projects/Hackathon/MimirAi/testdocs"
-                className="
-                  h-8.5 w-72 rounded-lg border border-[#232733] bg-[#0e1014]
-                  px-3 text-[12px] font-mono text-[#ededef] placeholder:text-[#4b515d]
-                  focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20
-                "
+                type="file"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                className="hidden"
+                accept=".pdf,.docx,.doc,.txt,.md,.py,.js,.json,.csv,.html,.png,.jpg,.jpeg"
               />
               <button
-                type="submit"
-                disabled={indexing || !folderInput.trim()}
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={indexing}
                 className="
-                  h-8.5 rounded-lg bg-[#1a1d26] border border-[#272c3a] px-3 text-[12px] font-medium text-[#ededef]
-                  hover:bg-[#202430] hover:border-[#32384a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors
-                  flex items-center gap-1.5
+                  h-8.5 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] px-3 text-[12px] font-medium text-white
+                  disabled:opacity-40 disabled:cursor-not-allowed transition-colors
+                  flex items-center gap-1.5 shadow-sm
                 "
               >
-                {indexing ? <RefreshCw size={12} className="animate-spin text-blue-400" /> : <Zap size={12} className="text-blue-400" />}
-                <span>{indexing ? "Indexing..." : "Index Path"}</span>
+                <Upload size={12} />
+                <span>Browse Files...</span>
               </button>
-            </form>
+
+              <form onSubmit={handleIndex} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={folderInput}
+                  onChange={(e) => setFolderInput(e.target.value)}
+                  placeholder="Or enter folder path (e.g. C:/Documents)..."
+                  className="
+                    h-8.5 w-60 rounded-lg border border-[#232733] bg-[#0e1014]
+                    px-3 text-[12px] font-mono text-[#ededef] placeholder:text-[#4b515d]
+                    focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20
+                  "
+                />
+                <button
+                  type="submit"
+                  disabled={indexing || !folderInput.trim()}
+                  className="
+                    h-8.5 rounded-lg bg-[#1a1d26] border border-[#272c3a] px-3 text-[12px] font-medium text-[#ededef]
+                    hover:bg-[#202430] hover:border-[#32384a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors
+                    flex items-center gap-1.5
+                  "
+                >
+                  {indexing ? <RefreshCw size={12} className="animate-spin text-blue-400" /> : <Zap size={12} className="text-blue-400" />}
+                  <span>{indexing ? "Indexing..." : "Index Folder"}</span>
+                </button>
+              </form>
+            </div>
           </div>
 
           {indexError && (

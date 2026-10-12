@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   FileText,
   FileCode,
@@ -13,8 +13,9 @@ import {
   HardDrive,
   CheckCircle2,
   X,
+  Upload,
 } from "lucide-react"
-import { getDocumentsApi, askMimirApi, indexFolderApi } from "@/lib/api"
+import { getDocumentsApi, askMimirApi, indexFolderApi, uploadFilesApi } from "@/lib/api"
 
 const EXT_META = {
   pdf:  { icon: FileText,        label: "PDF",  badge: "text-red-400 bg-red-500/10 border-red-500/20" },
@@ -75,6 +76,23 @@ export function DocumentsPage({ onNavigateToAsk }) {
     }
   }
 
+  const fileInputRef = useRef(null)
+
+  const handleFileUpload = async (e) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setIndexing(true)
+    try {
+      await uploadFilesApi(files)
+      await fetchDocs()
+    } catch (err) {
+      alert(err.message || "Failed to index selected files.")
+    } finally {
+      setIndexing(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
   const handleIndexSubmit = async (e) => {
     e.preventDefault()
     if (!indexInput.trim()) return
@@ -96,7 +114,7 @@ export function DocumentsPage({ onNavigateToAsk }) {
   return (
     <div className="space-y-6">
       {/* ── Header Toolbar ── */}
-      <div className="flex items-center justify-between pb-1 border-b border-[#181b22]">
+      <div className="flex flex-col md:flex-row md:items-center justify-between pb-1 border-b border-[#181b22] gap-3">
         <div>
           <h1 className="text-[20px] font-semibold text-[#ededef] tracking-tight">
             Document Repository
@@ -106,31 +124,55 @@ export function DocumentsPage({ onNavigateToAsk }) {
           </p>
         </div>
 
-        <form onSubmit={handleIndexSubmit} className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <input
-            type="text"
-            value={indexInput}
-            onChange={(e) => setIndexInput(e.target.value)}
-            placeholder="Folder path..."
-            className="
-              h-8.5 w-52 rounded-lg border border-[#232733] bg-[#12141a]
-              px-2.5 text-[12px] font-mono text-[#ededef] placeholder:text-[#4b515d]
-              focus:border-blue-500/50
-            "
+            type="file"
+            multiple
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            accept=".pdf,.docx,.doc,.txt,.md,.py,.js,.json,.csv,.html,.png,.jpg,.jpeg"
           />
           <button
-            type="submit"
-            disabled={indexing || !indexInput.trim()}
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={indexing}
             className="
-              h-8.5 rounded-lg bg-[#1a1d26] border border-[#272c3a] px-3 text-[12px] font-medium text-[#ededef]
-              hover:bg-[#202430] hover:border-[#32384a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors
-              flex items-center gap-1.5
+              h-8.5 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] px-3 text-[12px] font-medium text-white
+              disabled:opacity-40 disabled:cursor-not-allowed transition-colors
+              flex items-center gap-1.5 shadow-sm
             "
           >
-            {indexing ? <RefreshCw size={12} className="animate-spin text-blue-400" /> : <HardDrive size={12} className="text-blue-400" />}
-            <span>Index</span>
+            <Upload size={12} />
+            <span>Browse Files...</span>
           </button>
-        </form>
+
+          <form onSubmit={handleIndexSubmit} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={indexInput}
+              onChange={(e) => setIndexInput(e.target.value)}
+              placeholder="Or folder path..."
+              className="
+                h-8.5 w-48 rounded-lg border border-[#232733] bg-[#12141a]
+                px-2.5 text-[12px] font-mono text-[#ededef] placeholder:text-[#4b515d]
+                focus:border-blue-500/50
+              "
+            />
+            <button
+              type="submit"
+              disabled={indexing || !indexInput.trim()}
+              className="
+                h-8.5 rounded-lg bg-[#1a1d26] border border-[#272c3a] px-3 text-[12px] font-medium text-[#ededef]
+                hover:bg-[#202430] hover:border-[#32384a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors
+                flex items-center gap-1.5
+              "
+            >
+              {indexing ? <RefreshCw size={12} className="animate-spin text-blue-400" /> : <HardDrive size={12} className="text-blue-400" />}
+              <span>Index Folder</span>
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* ── Search / Filter Bar ── */}
