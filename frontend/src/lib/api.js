@@ -67,3 +67,24 @@ export async function askMimirApi(query, fileId = null, history = []) {
   return await res.json();
 }
 
+export async function getSettingsApi() {
+  const res = await fetch(`${API_BASE}/settings`);
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}: Failed to load settings`);
+  }
+  return await res.json();
+}
+
+export async function saveSettingsApi(settings) {
+  const res = await fetch(`${API_BASE}/settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}: Failed to save settings`);
+  }
+  return await res.json();
+}

@@ -1,4 +1,5 @@
 import os
+import json
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,50 @@ from contextlib import asynccontextmanager
 import db
 from indexer import index_folder, index_files, search_documents, get_embedding_model
 from llm import ask_question
+
+# ─── Upload Safety Constants ──────────────────────────────────────────────────
+MAX_FILE_SIZE_MB = 50
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
+ALLOWED_EXTENSIONS = {
+    # Documents
+    ".pdf", ".docx", ".doc", ".pptx", ".ppt", ".xlsx", ".xls", ".odt", ".rtf",
+    # Text / markup
+    ".txt", ".md", ".rst", ".csv",
+    # Code
+    ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".c", ".cpp", ".h", ".cs",
+    ".go", ".rs", ".rb", ".php", ".swift", ".kt", ".r",
+    # Config / data
+    ".json", ".yaml", ".yml", ".toml", ".ini", ".xml", ".html", ".htm",
+    # Images (OCR)
+    ".png", ".jpg", ".jpeg",
+}
+
+# ─── Settings Persistence ─────────────────────────────────────────────────────
+SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "mimir_settings.json")
+
+DEFAULT_SETTINGS = {
+    "watchPath": "~/Documents",
+    "autoReindex": True,
+    "indexHidden": False,
+    "privateMode": True,
+    "ocrEnabled": False,
+}
+
+def load_settings() -> Dict[str, Any]:
+    if os.path.exists(SETTINGS_PATH):
+        try:
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # Merge with defaults so new keys are always present
+                return {**DEFAULT_SETTINGS, **data}
+        except Exception:
+            pass
+    return dict(DEFAULT_SETTINGS)
+
+def save_settings(settings: Dict[str, Any]) -> None:
+    with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -135,24 +180,68 @@ async def upload_files_endpoint(files: List[UploadFile] = File(...)):
     """
     Allow users to select files from their OS File Manager (Finder / File Explorer)
     and index them into Mimir.
+
+    Safeguards applied:
+    - File extension must be in ALLOWED_EXTENSIONS (no executables, scripts, etc.)
+    - Individual file size capped at MAX_FILE_SIZE_MB (50 MB)
+    - Collision-safe naming: duplicate filenames get a counter suffix
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided.")
 
     saved_paths = []
+    skipped = []
+    import logging
+    api_log = logging.getLogger("mimir.api")
+
     for file in files:
-        safe_name = os.path.basename(file.filename)
+        safe_name = os.path.basename(file.filename or "")
+        if not safe_name:
+            skipped.append({"name": "(unknown)", "reason": "empty filename"})
+            continue
+
+        # Extension validation
+        ext = os.path.splitext(safe_name)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            skipped.append({"name": safe_name, "reason": f"unsupported file type '{ext}'"})
+            continue
+
+        # Read content with size check
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE_BYTES:
+            skipped.append({"name": safe_name, "reason": f"exceeds {MAX_FILE_SIZE_MB} MB limit"})
+            continue
+
+        if len(content) == 0:
+            skipped.append({"name": safe_name, "reason": "file is empty"})
+            continue
+
+        # Collision-safe destination path
         dest_path = os.path.join(UPLOAD_DIR, safe_name)
-        with open(dest_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        if os.path.exists(dest_path):
+            base, suffix = os.path.splitext(safe_name)
+            counter = 1
+            while os.path.exists(dest_path):
+                dest_path = os.path.join(UPLOAD_DIR, f"{base}_{counter}{suffix}")
+                counter += 1
+
+        with open(dest_path, "wb") as f:
+            f.write(content)
         saved_paths.append(dest_path)
+
+    if not saved_paths:
+        detail = "No valid files were uploaded."
+        if skipped:
+            reasons = "; ".join(f"{s['name']}: {s['reason']}" for s in skipped)
+            detail += f" Skipped: {reasons}"
+        raise HTTPException(status_code=400, detail=detail)
 
     try:
         result = index_files(saved_paths)
+        result["skipped"] = skipped
         return {"status": "success", "data": result}
     except Exception as e:
-        import logging
-        logging.getLogger("mimir.api").error(f"Error indexing uploaded files: {e}", exc_info=True)
+        api_log.error(f"Error indexing uploaded files: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to index uploaded files.")
 
 
@@ -220,6 +309,41 @@ def ask_endpoint(req: AskRequest):
         import logging
         logging.getLogger("mimir.api").error(f"Error during Q&A generation: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process question with local models.")
+
+
+# ─── Settings Endpoints ───────────────────────────────────────────────────────
+
+class SettingsModel(BaseModel):
+    watchPath: Optional[str] = None
+    autoReindex: Optional[bool] = None
+    indexHidden: Optional[bool] = None
+    privateMode: Optional[bool] = None
+    ocrEnabled: Optional[bool] = None
+
+@app.get("/settings")
+def get_settings_endpoint():
+    """
+    Return persisted user settings (merged with defaults for any missing keys).
+    """
+    return {"status": "success", "settings": load_settings()}
+
+@app.post("/settings")
+def save_settings_endpoint(req: SettingsModel):
+    """
+    Persist user settings to mimir_settings.json on disk.
+    Only fields provided in the request body are updated (partial update).
+    """
+    current = load_settings()
+    updates = req.model_dump(exclude_none=True)
+    current.update(updates)
+    try:
+        save_settings(current)
+    except Exception as e:
+        import logging
+        logging.getLogger("mimir.api").error(f"Failed to persist settings: {e}")
+        raise HTTPException(status_code=500, detail="Could not save settings to disk.")
+    return {"status": "success", "settings": current}
+
 
 if __name__ == "__main__":
     import uvicorn

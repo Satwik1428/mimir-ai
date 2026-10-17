@@ -134,11 +134,23 @@ Context from user's files:
             "context": full_context
         }
 
-    # 2. Fallback: LangChain Ollama wrapper
+    # 2. Fallback: LangChain Ollama wrapper (expects a plain string prompt)
     llm = get_llm()
     if llm is not None:
         try:
-            response = llm.invoke(messages)
+            # Serialize messages to a plain prompt string since LangChain Ollama.invoke() takes str
+            prompt_parts = []
+            for msg in messages:
+                role = msg.get("role", "user")
+                content_text = msg.get("content", "")
+                if role == "system":
+                    prompt_parts.append(f"[System]\n{content_text}")
+                elif role == "assistant":
+                    prompt_parts.append(f"[Assistant]\n{content_text}")
+                else:
+                    prompt_parts.append(f"[User]\n{content_text}")
+            flat_prompt = "\n\n".join(prompt_parts)
+            response = llm.invoke(flat_prompt)
             content = response.content if hasattr(response, "content") else str(response)
             if content and content.strip():
                 return {
