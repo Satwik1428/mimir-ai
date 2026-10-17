@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "mimir.db"))
@@ -32,7 +32,7 @@ def init_db():
 def add_or_update_document(filename: str, filepath: str, file_type: str, file_size: int, chunk_count: int, summary: Optional[str] = None):
     conn = get_db_connection()
     cursor = conn.cursor()
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     cursor.execute("""
         INSERT INTO documents (filename, filepath, file_type, file_size, chunk_count, indexed_at, summary, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'indexed')
@@ -81,3 +81,19 @@ def get_document_stats() -> Dict[str, Any]:
         "storage_indexed": size_str if count > 0 else "0 KB",
         "total_chunks": total_chunks
     }
+
+def purge_missing_documents() -> int:
+    """Remove database entries for files that no longer exist on disk."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, filepath FROM documents")
+    rows = cursor.fetchall()
+    deleted = 0
+    for row in rows:
+        if not os.path.exists(row["filepath"]):
+            cursor.execute("DELETE FROM documents WHERE id = ?", (row["id"],))
+            deleted += 1
+    conn.commit()
+    conn.close()
+    return deleted
+

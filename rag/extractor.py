@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 def extract_pdf_text(filepath: str) -> str:
     text = ""
     try:
-        import fitz  # PyMuPDF
+        import pymupdf as fitz  # PyMuPDF
         doc = fitz.open(filepath)
         for page_num in range(len(doc)):
             page = doc[page_num]
@@ -40,7 +40,7 @@ def extract_plain_text(filepath: str) -> str:
     encodings = ["utf-8-sig", "utf-8", "utf-16", "utf-16-le", "utf-16-be", "cp1252", "latin-1"]
     for enc in encodings:
         try:
-            with open(filepath, "r", encoding=enc) as f:
+            with open(filepath, "r", encoding=enc, errors="replace" if enc in ["latin-1", "cp1252"] else "strict") as f:
                 content = f.read()
                 # If decoded text looks valid (does not have pervasive null bytes)
                 if "\x00" in content:
@@ -79,7 +79,7 @@ def extract_text_from_file(filepath: str) -> Dict[str, Any]:
             enable_ocr = os.getenv("ENABLE_OCR", "false").lower() in ("true", "1", "yes")
             if enable_ocr:
                 try:
-                    import fitz
+                    import pymupdf as fitz
                     import easyocr
                     from PIL import Image
                     import io

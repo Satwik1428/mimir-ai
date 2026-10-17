@@ -19,7 +19,7 @@ const SUGGESTED_PROMPTS = [
   "Find references to neural network optimization notes",
 ]
 
-export function AskMimirPage({ onNavigateToSearch }) {
+export function AskMimirPage({ initialContext, onNavigateToSearch }) {
   const [messages, setMessages] = useState([
     {
       id: "init",
@@ -38,9 +38,18 @@ export function AskMimirPage({ onNavigateToSearch }) {
 
   useEffect(() => {
     getDocumentsApi().then((res) => {
-      if (res?.documents) setDocuments(res.documents)
+      const docs = res?.documents || []
+      setDocuments(docs)
+      if (initialContext) {
+        const isDoc = docs.some((d) => d.filename === initialContext || d.filepath === initialContext)
+        if (isDoc) {
+          setSelectedFile(initialContext)
+        } else {
+          setInput(initialContext)
+        }
+      }
     })
-  }, [])
+  }, [initialContext])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })

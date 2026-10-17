@@ -7,32 +7,63 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from contextlib import asynccontextmanager
 import db
-from indexer import index_folder, index_files, search_documents
+from indexer import index_folder, index_files, search_documents, get_embedding_model
 from llm import ask_question
 
-# Initialize SQLite database schema
-db.init_db()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize SQLite database schema
+    db.init_db()
+    # Pre-warm local embedding model so first upload or search has zero cold-start delay
+    try:
+        get_embedding_model()
+    except Exception as e:
+        import logging
+        logging.getLogger("mimir.api").warning(f"Embedding model pre-warming deferred: {e}")
+    yield
 
 app = FastAPI(
     title="Mimir AI API",
     description="Private on-device AI backend for local file indexing, semantic search, and RAG Q&A",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
-# Enable CORS for local frontend integration
+# Enable CORS for local frontend integration (supports dev 5173, preview 4173, etc.)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
     ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+@app.get("/health")
+def health_check():
+    """
+    Health check endpoint returning system status and document database stats.
+    """
+    stats = db.get_document_stats()
+    return {
+        "status": "healthy",
+        "service": "Mimir AI API",
+        "on_device": True,
+        "llm_engine": os.getenv("OLLAMA_MODEL", "qwen2.5:3b"),
+        "stats": stats
+    }
 
 # ─── Pydantic Request Models ──────────────────────────────────────────────────
 
@@ -62,7 +93,8 @@ def index_endpoint(req: IndexRequest):
     """
     try:
         if req.folder_path:
-            abs_folder = os.path.abspath(os.path.expanduser(req.folder_path))
+            clean_folder = req.folder_path.strip().strip('"\'')
+            abs_folder = os.path.abspath(os.path.expanduser(clean_folder))
             if not os.path.exists(abs_folder):
                 raise HTTPException(status_code=400, detail=f"Folder not found: {req.folder_path}")
             if not os.path.isdir(abs_folder):
@@ -73,7 +105,8 @@ def index_endpoint(req: IndexRequest):
         elif req.file_paths:
             valid_paths = []
             for p in req.file_paths:
-                abs_p = os.path.abspath(os.path.expanduser(p))
+                clean_p = p.strip().strip('"\'')
+                abs_p = os.path.abspath(os.path.expanduser(clean_p))
                 if os.path.isfile(abs_p):
                     valid_paths.append(abs_p)
             if not valid_paths:

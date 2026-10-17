@@ -1,6 +1,36 @@
+# Secrets & Environment
 .env
-**/.env
-__pycache__/
-.ipynb_checkpoints/
+.env.*
+*.env
+!*.env.example
+
+# Local Databases & Vector Stores
 mimir.db
+*.db
+*.sqlite
+*.sqlite3
 faiss_index/
+*.faiss
+*.pkl
+
+# Uploaded User Documents
+uploaded_docs/
+uploads/
+
+# Test Artifacts & Temporary Files
+*test_mimir*.db
+*test_faiss*
+mimir_test_*
+testdocs/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/

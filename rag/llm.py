@@ -23,6 +23,24 @@ def get_llm():
         logger.warning(f"Could not initialize local Ollama model '{model}': {e}")
         return None
 
+def query_ollama_direct(model: str, messages: List[Dict[str, str]], timeout: int = 90) -> Optional[str]:
+    try:
+        import httpx
+        base_host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+        url = f"{base_host}/api/chat"
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": False
+        }
+        res = httpx.post(url, json=payload, timeout=timeout)
+        if res.status_code == 200:
+            data = res.json()
+            return data.get("message", {}).get("content", "").strip()
+    except Exception as e:
+        logger.debug(f"Direct Ollama HTTP chat call failed: {e}")
+    return None
+
 def ask_question(query: str, file_filter: Optional[str] = None, history: Optional[List[Dict[str, str]]] = None, k: int = 4) -> Dict[str, Any]:
     vs = get_vector_store()
     if vs is None:
@@ -88,21 +106,6 @@ def ask_question(query: str, file_filter: Optional[str] = None, history: Optiona
 
     full_context = "\n\n---\n\n".join(context_blocks)
 
-    llm = get_llm()
-    if llm is None:
-        # Grounded local extractive fallback when Ollama is offline or uninstalled
-        best_passage = retrieved_docs[0].page_content.strip()
-        first_few_sentences = best_passage[:500]
-        return {
-            "answer": (
-                "*(Local LLM offline – displaying grounded extractive context)*\n\n"
-                f"**Extracted from {', '.join(seen_sources)}:**\n\n"
-                f"{first_few_sentences}..."
-            ),
-            "sources": sources,
-            "context": full_context
-        }
-
     system_prompt = f"""You are Mimir AI, a private, on-device AI assistant for the user's local documents.
 Answer the user's question clearly, accurately, and concisely based ONLY on the provided context from their files.
 If the answer cannot be found in the context, explicitly state: "I couldn't find that information in your indexed documents."
@@ -120,24 +123,40 @@ Context from user's files:
             
     messages.append({"role": "user", "content": query})
 
-    try:
-        response = llm.invoke(messages)
-        content = response.content if hasattr(response, "content") else str(response)
+    model_name = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+
+    # 1. Primary: Direct high-performance on-device Ollama call
+    direct_content = query_ollama_direct(model_name, messages)
+    if direct_content:
         return {
-            "answer": content.strip(),
+            "answer": direct_content,
             "sources": sources,
             "context": full_context
         }
-    except Exception as e:
-        logger.error(f"Local LLM invocation error: {e}")
-        # Graceful extractive fallback if Ollama model fails or times out
-        best_passage = retrieved_docs[0].page_content.strip()
-        return {
-            "answer": (
-                "*(Local Ollama was unreachable – fallback to grounded document extract)*\n\n"
-                f"**From {', '.join(seen_sources)}:**\n\n"
-                f"{best_passage[:450]}..."
-            ),
-            "sources": sources,
-            "context": full_context
-        }
+
+    # 2. Fallback: LangChain Ollama wrapper
+    llm = get_llm()
+    if llm is not None:
+        try:
+            response = llm.invoke(messages)
+            content = response.content if hasattr(response, "content") else str(response)
+            if content and content.strip():
+                return {
+                    "answer": content.strip(),
+                    "sources": sources,
+                    "context": full_context
+                }
+        except Exception as e:
+            logger.error(f"LangChain LLM invocation error: {e}")
+
+    # 3. Fallback: Grounded local extractive context if Ollama is offline or uninstalled
+    best_passage = retrieved_docs[0].page_content.strip()
+    return {
+        "answer": (
+            "*(Local Ollama offline – displaying grounded extractive context)*\n\n"
+            f"**From {', '.join(seen_sources)}:**\n\n"
+            f"{best_passage[:450]}..."
+        ),
+        "sources": sources,
+        "context": full_context
+    }
