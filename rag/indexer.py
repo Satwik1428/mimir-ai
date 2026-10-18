@@ -1,7 +1,16 @@
 import os
 from typing import List, Dict, Any, Optional
 
-INDEX_DIR = os.getenv("INDEX_DIR", os.path.join(os.path.dirname(__file__), "faiss_index"))
+APP_DATA_DIR = os.getenv(
+    "MIMIR_DATA_DIR",
+    os.path.dirname(os.path.abspath(__file__)),
+)
+os.makedirs(APP_DATA_DIR, exist_ok=True)
+
+INDEX_DIR = os.getenv(
+    "INDEX_DIR",
+    os.path.join(APP_DATA_DIR, "faiss_index"),
+)
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
 _embedding_model = None
