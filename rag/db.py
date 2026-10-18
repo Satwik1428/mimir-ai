@@ -3,7 +3,16 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
-DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "mimir.db"))
+APP_DATA_DIR = os.getenv(
+    "MIMIR_DATA_DIR",
+    os.path.dirname(os.path.abspath(__file__)),
+)
+os.makedirs(APP_DATA_DIR, exist_ok=True)
+
+DB_PATH = os.getenv(
+    "DB_PATH",
+    os.path.join(APP_DATA_DIR, "mimir.db"),
+)
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)

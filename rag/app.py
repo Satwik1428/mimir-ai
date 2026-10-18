@@ -32,7 +32,13 @@ ALLOWED_EXTENSIONS = {
 }
 
 # ─── Settings Persistence ─────────────────────────────────────────────────────
-SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "mimir_settings.json")
+APP_DATA_DIR = os.getenv(
+    "MIMIR_DATA_DIR",
+    os.path.dirname(os.path.abspath(__file__)),
+)
+os.makedirs(APP_DATA_DIR, exist_ok=True)
+
+SETTINGS_PATH = os.path.join(APP_DATA_DIR, "mimir_settings.json")
 
 DEFAULT_SETTINGS = {
     "watchPath": "~/Documents",
@@ -172,7 +178,10 @@ def index_endpoint(req: IndexRequest):
 from fastapi import UploadFile, File
 import shutil
 
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_docs")
+UPLOAD_DIR = os.getenv(
+    "MIMIR_UPLOAD_DIR",
+    os.path.join(APP_DATA_DIR, "uploaded_docs"),
+)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/upload")
